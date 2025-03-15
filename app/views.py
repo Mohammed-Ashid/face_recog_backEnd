@@ -541,7 +541,8 @@ def login(request):
                                 'message': 'Login successful.',
                                 'userType': 'student',
                                 'studentId': student.studentId,  # Explicitly named
-                                'name': student.studentName
+                                'name': student.studentName,
+                                "student_Id":user_id
                             }, status=200)
                         else:
                             return JsonResponse({
@@ -971,7 +972,7 @@ def get_student_attendances(request):
         if not student_id:
             return JsonResponse({'status': 'error', 'message': 'Student ID is required.'}, status=400)
         try:
-            attendance = StudentAttendance.objects.filter(studentId__studentId=student_id).values(
+            attendance = StudentAttendance.objects.filter(studentId__collegeId=student_id).values(
                 'date', 'period', 'time'
             )
             data = [{'date': str(a['date']), 'period': a['period'], 'status': 'Present'} for a in attendance]
@@ -988,10 +989,11 @@ def get_student_tasks(request):
         if not student_id:
             return JsonResponse({'status': 'error', 'message': 'Student ID is required.'}, status=400)
         try:
-            tasks = Task.objects.filter(studentId__studentId=student_id).values(
-                'taskId', 'title', 'dueDate', 'status'
+            tasks = Task.objects.filter(studentId__collegeId=student_id).values(
+                'taskId', 'title','description', 'dueDate', 'status'
             )
-            data = [{'id': t['taskId'], 'title': t['title'], 'dueDate': str(t['dueDate']), 'status': t['status']} for t in tasks]
+            data = [{'id': t['taskId'], 'title': t['title'],'description':t['description'], 'dueDate': str(t['dueDate']), 'status': t['status']} for t in tasks]
+            print(data)
             return JsonResponse({'status': 'success', 'data': data}, status=200)
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -1007,11 +1009,13 @@ def submit_request(request):
             request_type = data.get('requestType')  # 'LEAVE' or 'ATTENDANCE_REVIEW'
             date = data.get('date')
             reason = data.get('reason')
+            print(data)
 
             if not all([student_id, request_type, date, reason]):
                 return JsonResponse({'status': 'error', 'message': 'All fields are required.'}, status=400)
 
-            student = Student.objects.get(studentId=student_id)
+            student = Student.objects.get(collegeId=student_id)
+            print(student)
             leave_request = LeaveRequest(
                 studentId=student,
                 requestType=request_type,
@@ -1065,6 +1069,11 @@ def get_teacher_requests(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
 # Update request status with cause
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+from .models import LeaveRequest  # Ensure this import matches your model
+
 @csrf_exempt
 def update_request_status(request):
     if request.method == 'POST':
