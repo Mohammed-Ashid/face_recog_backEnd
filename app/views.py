@@ -109,100 +109,166 @@ import time  # Add this import at the top
 import threading
 
 # Global flag for stopping the process
+# stop_process_flag = False
+# # Start Face Recognition for attendance
+# @csrf_exempt
+# def start(request):
+#     try:
+#         global stop_process_flag
+#         stop_process_flag = False  # Reset stop flag at the start
+#         # Fetch today's date or get it from the request if provided
+#         data = json.loads(request.body)
+#         period = data.get('period', 1)
+#         # department = request.GET.get('department')
+#         # print(department)
+#         # classValue = request.GET.get('classValue')
+
+#         if 'date' in request.GET:
+#             attendance_date = request.GET['date']  # e.g., '2025-01-17'
+#             attendance_date = date.fromisoformat(attendance_date)  # Convert string to date
+#         else:
+#             attendance_date = date.today()  # Default to today's date
+
+#         # Extract attendance data for the given date
+#         # names, rolls, times, l = extract_attendance(attendance_date,period)
+
+#         # if 'face_recognition_model.pkl' not in os.listdir('static'):
+#         #     return render(request, 'attendance.html', {
+#         #         'names': names,
+#         #         'rolls': rolls,
+#         #         'times': times,
+#         #         'l': l,
+#         #         'totalreg': totalreg(),
+#         #         'datetoday2': datetoday2(),
+#         #         'mess': 'There is no trained model in the static folder. Please add a new face to continue.'
+#         #     })
+#                 # Check for a trained model
+#         if 'face_recognition_model.pkl' not in os.listdir('static'):
+#             return render(request, 'attendance.html', {
+#                 'mess': 'No trained model found. Please add a new face to continue.'
+#             })
+
+
+#         cap = cv2.VideoCapture(0)
+#         if not cap.isOpened():
+#             print("Cannot access the webcam")
+#             return HttpResponse("Cannot access the webcam", status=500)
+        
+#         identified_person = None
+#         identified_start_time = None
+#         stable_threshold = 3  # Time in seconds for stability check
+
+#         while not stop_process_flag:
+#             ret, frame = cap.read()
+#             if not ret or frame is None:
+#                 print("Failed to capture frame")
+#                 break
+#             faces = extract_faces(frame)
+#             if len(faces) > 0:
+#                 (x, y, w, h) = faces[0]
+#                 cv2.rectangle(frame, (x, y), (x + w, y + h), (86, 32, 251), 1)
+#                 cv2.rectangle(frame, (x, y), (x + w, y - 40), (86, 32, 251), -1)
+#                 face = cv2.resize(frame[y:y + h, x:x + w], (50, 50))
+#                 current_person = identify_face(face.reshape(1, -1))[0]
+#                 # Stability check: Ensure the same face is identified for 3 seconds
+#                 if current_person == identified_person:
+#                     if identified_start_time is None:
+#                         identified_start_time = time.time()
+#                     elif time.time() - identified_start_time >= stable_threshold:
+#                         # Mark attendance if the person is stable for 3 seconds
+#                         add_attendance(current_person,period)
+#                         cv2.putText(frame, f'{current_person} (Marked)', (x + 5, y - 5),
+#                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+#                         identified_start_time = None  # Reset after marking attendance
+#                 else:
+#                     identified_person = current_person
+#                     identified_start_time = None  # Reset timer if face changes
+#                 # identified_person = identify_face(face.reshape(1, -1))[0]
+#                 # add_attendance(identified_person)
+#                 cv2.putText(frame, f'{identified_person}', (x + 5, y - 5),
+#                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+#             cv2.imshow('Attendance', frame)
+#             if cv2.waitKey(1) == 27:
+#                 break
+#         cap.release()
+#         cv2.destroyAllWindows()
+#         return HttpResponse("Attendance process completed successfully.")
+#         # Update attendance list
+#         # names, rolls, times, l = extract_attendance()
+#         # return render(request, 'attendance.html', {
+#         #     'names': names,
+#         #     'rolls': rolls,
+#         #     'times': times,
+#         #     'l': l,
+#         #     'totalreg': totalreg(),
+#         #     'datetoday2': datetoday2()
+#         # })
+
+#     except Exception as e:
+#         print(f"Error in face recognition: {e}")
+#         return HttpResponse("Error in face recognition", status=500)
+
+import cv2
+import json
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from collections import Counter
+from .utils import extract_faces, identify_face, add_attendance, totalreg, datetoday2, preprocess_image  # Add preprocess_image
+
 stop_process_flag = False
-# Start Face Recognition for attendance
+
 @csrf_exempt
 def start(request):
     try:
         global stop_process_flag
-        stop_process_flag = False  # Reset stop flag at the start
-        # Fetch today's date or get it from the request if provided
+        stop_process_flag = False
         data = json.loads(request.body)
         period = data.get('period', 1)
-        # department = request.GET.get('department')
-        # print(department)
-        # classValue = request.GET.get('classValue')
 
-        if 'date' in request.GET:
-            attendance_date = request.GET['date']  # e.g., '2025-01-17'
-            attendance_date = date.fromisoformat(attendance_date)  # Convert string to date
-        else:
-            attendance_date = date.today()  # Default to today's date
-
-        # Extract attendance data for the given date
-        # names, rolls, times, l = extract_attendance(attendance_date,period)
-
-        # if 'face_recognition_model.pkl' not in os.listdir('static'):
-        #     return render(request, 'attendance.html', {
-        #         'names': names,
-        #         'rolls': rolls,
-        #         'times': times,
-        #         'l': l,
-        #         'totalreg': totalreg(),
-        #         'datetoday2': datetoday2(),
-        #         'mess': 'There is no trained model in the static folder. Please add a new face to continue.'
-        #     })
-                # Check for a trained model
         if 'face_recognition_model.pkl' not in os.listdir('static'):
-            return render(request, 'attendance.html', {
-                'mess': 'No trained model found. Please add a new face to continue.'
-            })
-
+            return JsonResponse({'status': 'error', 'message': 'No trained model found.'}, status=400)
 
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
-            print("Cannot access the webcam")
             return HttpResponse("Cannot access the webcam", status=500)
-        
-        identified_person = None
-        identified_start_time = None
-        stable_threshold = 3  # Time in seconds for stability check
+
+        identified_person_history = []
+        stability_frame_count = 30  # ~1 second at 30 FPS
 
         while not stop_process_flag:
             ret, frame = cap.read()
             if not ret or frame is None:
-                print("Failed to capture frame")
                 break
             faces = extract_faces(frame)
             if len(faces) > 0:
                 (x, y, w, h) = faces[0]
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (86, 32, 251), 1)
                 cv2.rectangle(frame, (x, y), (x + w, y - 40), (86, 32, 251), -1)
-                face = cv2.resize(frame[y:y + h, x:x + w], (50, 50))
+                # Preprocess and resize to match training data
+                face = preprocess_image(frame[y:y + h, x:x + w])  # Convert to grayscale
+                face = cv2.resize(face, (100, 100))  # Match training resolution
                 current_person = identify_face(face.reshape(1, -1))[0]
-                # Stability check: Ensure the same face is identified for 3 seconds
-                if current_person == identified_person:
-                    if identified_start_time is None:
-                        identified_start_time = time.time()
-                    elif time.time() - identified_start_time >= stable_threshold:
-                        # Mark attendance if the person is stable for 3 seconds
-                        add_attendance(current_person,period)
-                        cv2.putText(frame, f'{current_person} (Marked)', (x + 5, y - 5),
+                identified_person_history.append(current_person)
+
+                if len(identified_person_history) >= stability_frame_count:
+                    identified_person = Counter(identified_person_history).most_common(1)[0][0]
+                    result = add_attendance(identified_person, period)
+                    identified_person_history = []
+                    if result['status'] == 'success':
+                        cv2.putText(frame, f'{identified_person} (Marked)', (x + 5, y - 5),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                        identified_start_time = None  # Reset after marking attendance
+                    else:
+                        cv2.putText(frame, f'{identified_person}', (x + 5, y - 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
                 else:
-                    identified_person = current_person
-                    identified_start_time = None  # Reset timer if face changes
-                # identified_person = identify_face(face.reshape(1, -1))[0]
-                # add_attendance(identified_person)
-                cv2.putText(frame, f'{identified_person}', (x + 5, y - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                    cv2.putText(frame, f'{current_person}', (x + 5, y - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
             cv2.imshow('Attendance', frame)
             if cv2.waitKey(1) == 27:
                 break
         cap.release()
         cv2.destroyAllWindows()
-        return HttpResponse("Attendance process completed successfully.")
-        # Update attendance list
-        # names, rolls, times, l = extract_attendance()
-        # return render(request, 'attendance.html', {
-        #     'names': names,
-        #     'rolls': rolls,
-        #     'times': times,
-        #     'l': l,
-        #     'totalreg': totalreg(),
-        #     'datetoday2': datetoday2()
-        # })
+        return JsonResponse({'status': 'success', 'message': 'Attendance process completed.'})
 
     except Exception as e:
         print(f"Error in face recognition: {e}")
@@ -268,7 +334,7 @@ def add(request):
             # Initialize variables for capturing images
             cap = cv2.VideoCapture(0)  # Open the webcam
             i, j = 0, 0
-            nimgs = 20  # Number of images to capture
+            nimgs = 10  # Number of images to capture
             saved_image_path = None  # To save the path of the first captured image
 
             while True:
