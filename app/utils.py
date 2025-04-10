@@ -270,11 +270,12 @@ def add_attendance(name, period):
         current_date = datetime.now().date()
         current_time = datetime.now().time()
         student = Student.objects.get(collegeId=student_id, studentName=student_name)
+        print(student)
         
         if student.status != 1:
             return {'status': 'error', 'message': f'Student {student_name} is inactive.'}
 
-        if not StudentAttendance.objects.filter(studentId=student, date=current_date, period=period).exists():
+        if not StudentAttendance.objects.filter(studentId_id=student, date=current_date, period=period).exists():
             new_attendance = StudentAttendance(
                 studentId=student,
                 studentName=student.studentName,
